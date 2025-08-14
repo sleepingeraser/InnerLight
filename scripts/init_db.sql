@@ -50,7 +50,7 @@ CREATE TABLE Appointments (
 -- sample data
 INSERT INTO Users (username, email, password, role)
 VALUES 
-('Koyuki', 'koyukisky21@gmail.com', 'realme', 'admin'),
+('Koyuki', 'koyukisky18@gmail.com', 'realme', 'admin'),
 ('Astra', 'astrastone19@gmail.com', 'pokemon', 'user')
 
 INSERT INTO Articles (title, content, category)
