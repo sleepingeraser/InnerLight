@@ -10,12 +10,12 @@ const {
 } = require("../controllers/articleController");
 const { auth, adminAuth } = require("../middleware/auth");
 
-// Public routes
+// public routes
 router.get("/", getAllArticles);
 router.get("/category/:category", getArticlesByCategory);
 router.get("/:id", getArticleById);
 
-// Protected admin routes
+// protected admin routes
 router.post("/", auth, adminAuth, createArticle);
 router.put("/:id", auth, adminAuth, updateArticle);
 router.delete("/:id", auth, adminAuth, deleteArticle);
