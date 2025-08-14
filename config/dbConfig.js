@@ -19,7 +19,7 @@ const poolPromise = new sql.ConnectionPool(config)
     return pool;
   })
   .catch((err) => {
-    console.error("Database Connection Failed:", err); // Log detailed error
+    console.error("Database Connection Failed:", err);
     throw err;
   });
 
