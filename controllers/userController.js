@@ -32,7 +32,7 @@ const registerUser = async (req, res, next) => {
       id: newUser.id,
       username: newUser.username,
       email: newUser.email,
-      role: newUser.role, // This will now show 'admin' if provided
+      role: newUser.role,
       token,
     });
   } catch (error) {
