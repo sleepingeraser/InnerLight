@@ -62,3 +62,5 @@ SELECT * FROM Appointments
 SELECT * FROM Articles
 SELECT * FROM Journals
 SELECT * FROM Users
+
+DELETE FROM Users WHERE email = 'koyukisky18@gmail.com'
