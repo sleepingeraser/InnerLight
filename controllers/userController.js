@@ -1,6 +1,8 @@
+const bcrypt = require("bcryptjs");
 const User = require("../models/user");
 const { poolPromise, sql } = require("../config/dbConfig");
 
+// user
 const registerUser = async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
@@ -45,7 +47,7 @@ const loginUser = async (req, res, next) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // check password
+    // compare passwords
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -62,6 +64,7 @@ const loginUser = async (req, res, next) => {
       token,
     });
   } catch (error) {
+    console.error("Login error:", error);
     next(error);
   }
 };
@@ -84,4 +87,17 @@ const getCurrentUser = async (req, res, next) => {
   }
 };
 
-module.exports = { registerUser, loginUser, getCurrentUser };
+const getAllUsers = async (req, res, next) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool
+      .request()
+      .query("SELECT id, username, email, role, createdAt FROM Users");
+
+    res.json(result.recordset);
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { registerUser, loginUser, getCurrentUser, getAllUsers };
