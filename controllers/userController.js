@@ -58,7 +58,7 @@ const loginUser = async (req, res, next) => {
     console.log("Password match result:", isMatch);
 
     if (!isMatch) {
-      console.log("❌ Password does not match");
+      console.log("Password does not match");
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
