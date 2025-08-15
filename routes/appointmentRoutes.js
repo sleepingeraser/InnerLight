@@ -10,14 +10,14 @@ const {
 } = require("../controllers/appointmentController");
 const { auth, adminAuth } = require("../middleware/auth");
 
-// protected user routes
+// user routes
 router.post("/", auth, createAppointment);
 router.get("/", auth, getUserAppointments);
 router.get("/:id", auth, getAppointmentById);
 router.delete("/:id", auth, deleteAppointment);
 
-// protected admin routes
-router.get("/all", auth, adminAuth, getAllAppointments);
-router.put("/:id/status", auth, adminAuth, updateAppointmentStatus);
+// admin routes
+router.get("/admin/all", auth, adminAuth, getAllAppointments);
+router.put("/admin/:id/status", auth, adminAuth, updateAppointmentStatus);
 
 module.exports = router;
