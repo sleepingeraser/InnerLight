@@ -42,9 +42,8 @@ CREATE TABLE Appointments (
   id INT PRIMARY KEY IDENTITY,
   userId INT NOT NULL,
   status NVARCHAR(20) CHECK (status IN ('pending', 'approved', 'rejected')),
-  scheduledAt DATETIME NOT NULL,
-  createdAt DATETIME DEFAULT GETDATE(),
-  FOREIGN KEY (userId) REFERENCES Users(id)
+  scheduledAt DATETIME NOT NULL,  -- Note correct spelling
+  createdAt DATETIME DEFAULT GETDATE()
 )
 
 -- sample data

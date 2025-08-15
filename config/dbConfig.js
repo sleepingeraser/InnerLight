@@ -7,8 +7,8 @@ const config = {
   server: process.env.DB_SERVER,
   database: process.env.DB_NAME,
   options: {
-    encrypt: true, // for azure SQL
-    trustServerCertificate: true, // for local dev
+    encrypt: true, // For Azure SQL
+    trustServerCertificate: true, // For local dev
   },
 };
 
@@ -19,7 +19,7 @@ const poolPromise = new sql.ConnectionPool(config)
     return pool;
   })
   .catch((err) => {
-    console.error("Database Connection Failed:", err); // log detailed error
+    console.error("Database Connection Failed:", err); // Log detailed error
     throw err;
   });
 
