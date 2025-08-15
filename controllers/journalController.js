@@ -90,10 +90,11 @@ const deleteJournal = async (req, res, next) => {
     next(error);
   }
 };
+
 module.exports = {
   createJournal,
   getUserJournals,
   getJournalById,
   updateJournal,
-  deleteJournal
+  deleteJournal,
 };

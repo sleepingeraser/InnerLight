@@ -5,7 +5,7 @@ const { poolPromise, sql } = require("../config/dbConfig");
 // user
 const registerUser = async (req, res, next) => {
   try {
-    const { username, email, password, role = "user" } = req.body;
+    const { username, email, password } = req.body;
 
     // basic validation
     if (!username || !email || !password) {
@@ -19,15 +19,11 @@ const registerUser = async (req, res, next) => {
     }
 
     // create new user
-    const newUser = await User.create({
-      username,
-      email,
-      password,
-      role,
-    });
+    const newUser = await User.create({ username, email, password });
 
     // generate token
     const token = User.generateToken(newUser);
+
     res.status(201).json({
       id: newUser.id,
       username: newUser.username,
@@ -36,6 +32,7 @@ const registerUser = async (req, res, next) => {
       token,
     });
   } catch (error) {
+    console.error("Registration error:", error);
     next(error);
   }
 };
@@ -43,37 +40,31 @@ const registerUser = async (req, res, next) => {
 const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    console.log("Login attempt for:", email);
 
     // find user by email
     const user = await User.findByEmail(email);
     if (!user) {
-      console.log("User not found in database");
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
     // compare passwords
-    console.log("Stored hashed password:", user.password);
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log("Password match result:", isMatch);
-
     if (!isMatch) {
-      console.log("Password does not match");
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
     // generate token
     const token = User.generateToken(user);
-    console.log("Generated token:", token);
 
     res.json({
       id: user.id,
+      username: user.username,
       email: user.email,
       role: user.role,
       token,
     });
   } catch (error) {
-    console.error("🔥 Login error:", error);
+    console.error("Login error:", error);
     next(error);
   }
 };

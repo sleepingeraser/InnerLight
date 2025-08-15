@@ -49,8 +49,8 @@ CREATE TABLE Appointments (
 -- sample data
 INSERT INTO Users (username, email, password, role)
 VALUES 
-('Koyuki', 'koyukisky18@gmail.com', 'realme', 'admin'),
-('Astra', 'astrastone19@gmail.com', 'pokemon', 'user')
+('Koyuki', 'koyukisky18@gmail.com', '$2a$10$Co3yEns5VAf0hHvw1/IsHOdISZZYo2/h5FRaunw4V2gi44iTVOac.', 'admin'),
+('Astra', 'astrastone19@gmail.com', '$2a$10$DBrwXaodZ8I3t58Iwb4WaOuMeSNfq8h2P9IHssteH7O3ltJ1Ah.IW', 'user')
 
 INSERT INTO Articles (title, content, category)
 VALUES
@@ -61,5 +61,3 @@ SELECT * FROM Appointments
 SELECT * FROM Articles
 SELECT * FROM Journals
 SELECT * FROM Users
-
-DELETE FROM Users WHERE email = 'koyukisky18@gmail.com'
