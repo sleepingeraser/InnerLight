@@ -17,8 +17,21 @@ const createArticle = async (req, res, next) => {
 
 const getAllArticles = async (req, res, next) => {
   try {
-    const articles = await Article.findAll();
-    res.json(articles);
+    const { page = 1, limit = 10, sortBy, sortOrder, category } = req.query;
+
+    const result = await Article.findAllPaginated({
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+      category, // preserves existing filtering
+    });
+
+    res.json({
+      success: true,
+      data: result.data,
+      pagination: result.pagination,
+    });
   } catch (error) {
     next(error);
   }
@@ -97,5 +110,5 @@ module.exports = {
   getArticlesByCategory,
   getArticleById,
   updateArticle,
-  deleteArticle
+  deleteArticle,
 };
