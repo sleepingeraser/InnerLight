@@ -8,7 +8,7 @@ async function hashPassword(password) {
   return hashedPassword;
 }
 
-// Hash your passwords
+// hash your passwords
 hashPassword("realme");
 hashPassword("pokemon");
 hashPassword("BokuNoAcademia");
