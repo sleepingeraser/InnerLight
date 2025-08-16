@@ -185,6 +185,26 @@ section.active {
   margin-bottom: 0.5rem;
 }
 
+.article-actions {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.article-actions button {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  background: var(--secondary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.article-actions button:hover {
+  opacity: 0.9;
+}
+
 .filter-controls {
   display: flex;
   gap: 1rem;

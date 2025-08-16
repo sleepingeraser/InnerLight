@@ -267,18 +267,27 @@ async function loadArticles(category) {
     params.append("limit", 100);
 
     url = `${url}?${params.toString()}`;
-
     const response = await fetch(url);
+    const token = localStorage.getItem("token");
 
     if (response.ok) {
       const data = await response.json();
-      const articles = data.data || data; // handle both paginated and non-paginated responses
+      const articles = data.data || data;
       const articleList = document.getElementById("articleList");
 
       if (articles.length === 0) {
         articleList.innerHTML = "<p>No articles found</p>";
         return;
       }
+
+      // get user role to determine if we should show admin controls
+      const userResponse = await fetch(`${API_BASE_URL}/users/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const user = userResponse.ok ? await userResponse.json() : null;
+      const isAdmin = user?.role === "admin";
 
       articleList.innerHTML = articles
         .map(
@@ -289,19 +298,25 @@ async function loadArticles(category) {
             <h3>${article.title}</h3>
             <p>${article.content.substring(0, 150)}...</p>
             <small>${new Date(article.createdAt).toLocaleDateString()}</small>
-          </div>
+            ${
+              isAdmin
+                ? `<div class="article-actions">
+                    <button onclick="editArticle('${article.id}')">Edit</button>
+                    <button onclick="deleteArticle('${article.id}')">Delete</button>
+                   </div>`
+                : ""
+            }
+           </div>
         </div>
       `
         )
         .join("");
     } else {
-      document.getElementById("articleList").innerHTML =
-        "<p>Error loading articles</p>";
+      articleList.innerHTML = "<p>Error loading articles</p>";
     }
   } catch (err) {
     console.error("Failed to load articles:", err);
-    document.getElementById("articleList").innerHTML =
-      "<p>Failed to load articles</p>";
+    articleList.innerHTML = "<p>Failed to load articles</p>";
   }
 }
 
@@ -316,10 +331,16 @@ if (articleForm) {
     const title = document.getElementById("articleTitle").value;
     const content = document.getElementById("articleContent").value;
     const category = document.getElementById("articleCategory").value;
+    const articleId = articleForm.dataset.articleId;
+
+    const method = articleId ? "PUT" : "POST";
+    const url = articleId
+      ? `${API_BASE_URL}/articles/${articleId}`
+      : `${API_BASE_URL}/articles`;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/articles`, {
-        method: "POST",
+      const response = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -329,14 +350,70 @@ if (articleForm) {
 
       if (response.ok) {
         articleForm.reset();
+        delete articleForm.dataset.articleId;
+        document.querySelector("#articleForm button").textContent =
+          "Publish Article";
         loadArticles();
       } else {
-        alert("Failed to publish article");
+        alert(
+          articleId ? "Failed to update article" : "Failed to publish article"
+        );
       }
     } catch (err) {
-      console.error("Article publish error:", err);
+      console.error("Article operation error:", err);
     }
   });
+}
+
+async function editArticle(id) {
+  try {
+    // fetch the article details
+    const response = await fetch(`${API_BASE_URL}/articles/${id}`);
+    if (!response.ok) {
+      throw new Error("Failed to fetch article");
+    }
+    const article = await response.json();
+
+    // populate the admin form with article data
+    document.getElementById("articleTitle").value = article.title;
+    document.getElementById("articleContent").value = article.content;
+    document.getElementById("articleCategory").value = article.category;
+
+    // store the article ID for the update
+    document.getElementById("articleForm").dataset.articleId = id;
+
+    // change the form button text
+    document.querySelector("#articleForm button").textContent =
+      "Update Article";
+
+    // scroll to the form
+    document.getElementById("articleForm").scrollIntoView();
+  } catch (err) {
+    console.error("Failed to edit article:", err);
+    alert("Failed to load article for editing");
+  }
+}
+
+async function deleteArticle(id) {
+  if (!confirm("Are you sure you want to delete this article?")) return;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/articles/${id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+
+    if (response.ok) {
+      loadArticles();
+    } else {
+      alert("Failed to delete article");
+    }
+  } catch (err) {
+    console.error("Failed to delete article:", err);
+    alert("Failed to delete article");
+  }
 }
 
 // appointment
