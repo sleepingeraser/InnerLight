@@ -29,7 +29,7 @@ const getJournalById = async (req, res, next) => {
       return res.status(404).json({ message: "Journal not found" });
     }
 
-    // Ensure the journal belongs to the user (unless admin)
+    // ensure the journal belongs to the user (unless admin)
     if (journal.userId !== req.user.id && req.user.role !== "admin") {
       return res.status(403).json({ message: "Not authorized" });
     }
@@ -45,7 +45,7 @@ const updateJournal = async (req, res, next) => {
     const { title, content } = req.body;
     const journalId = req.params.id;
 
-    // First get the journal to check ownership
+    // get the journal to check ownership
     const journal = await Journal.findById(journalId);
     if (!journal) {
       return res.status(404).json({ message: "Journal not found" });
@@ -70,7 +70,7 @@ const deleteJournal = async (req, res, next) => {
   try {
     const journalId = req.params.id;
 
-    // First get the journal to check ownership
+    // get the journal to check ownership
     const journal = await Journal.findById(journalId);
     if (!journal) {
       return res.status(404).json({ message: "Journal not found" });

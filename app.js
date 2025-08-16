@@ -47,7 +47,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// API root endpoint
+// api root endpoint
 app.get("/api", (req, res) => {
   res.json({
     message: "InnerLight API Root",
