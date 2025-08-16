@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Dashboard - InnerLight</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>InnerLight</h1>
+      <nav>
+        <button id="journalsTab">Journal</button>
+        <button id="articlesTab">Articles</button>
+        <button id="appointmentsTab">Appointments</button>
+        <button id="logoutBtn">Logout</button>
+      </nav>
+    </header>
+
+    <main>
+      <!-- journal -->
+      <section id="journalSection" class="active">
+        <h2>My Journal</h2>
+        <form id="journalForm">
+          <input type="text" id="journalTitle" placeholder="Title" />
+          <textarea
+            id="journalContent"
+            placeholder="How are you feeling today?"
+          ></textarea>
+          <button type="submit">Save Entry</button>
+        </form>
+        <div id="journalEntries"></div>
+      </section>
+
+      <!-- articles -->
+      <section id="articleSection">
+        <h2>Mental Health Articles</h2>
+
+        <!-- category -->
+        <div class="filter-controls">
+          <select id="articleCategoryFilter">
+            <option value="">All Categories</option>
+            <option value="">All Categories</option>
+            <option value="Wellness">Wellness</option>
+            <option value="Mental Health">Mental Health</option>
+            <!-- Add more categories as needed -->
+          </select>
+          <button id="applyFilter" class="btn">Apply Filter</button>
+        </div>
+
+        <!-- admin controls (hidden for regular users) -->
+        <div id="adminArticleControls" class="admin-only">
+          <h3>Admin Controls</h3>
+          <form id="articleForm">
+            <input type="text" id="articleTitle" placeholder="Title" required />
+            <textarea
+              id="articleContent"
+              placeholder="Content"
+              required
+            ></textarea>
+            <input
+              type="text"
+              id="articleCategory"
+              placeholder="Category"
+              required
+            />
+            <button type="submit">Publish Article</button>
+          </form>
+        </div>
+
+        <!-- articles display -->
+        <div id="articleList" class="articles-grid"></div>
+      </section>
+
+      <!-- appointments -->
+      <section id="appointmentSection">
+        <h2>My Appointments</h2>
+        <form id="appointmentForm">
+          <input type="datetime-local" id="appointmentTime" required />
+          <button type="submit">Request Appointment</button>
+        </form>
+        <div id="appointmentList"></div>
+
+        <div id="adminAppointmentControls" class="admin-only">
+          <h3>Manage Appointments</h3>
+          <div id="allAppointments"></div>
+        </div>
+      </section>
+    </main>
+
+    <script src="js/app.js"></script>
+  </body>
+</html>

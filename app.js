@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const path = require("path");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const { poolPromise } = require("./config/dbConfig");
@@ -15,11 +16,15 @@ const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
 
+// Middleware setup
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-//test database connection
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, "public")));
+
+// Test database connection
 async function testDbConnection() {
   try {
     const pool = await poolPromise;
@@ -33,21 +38,7 @@ async function testDbConnection() {
 
 testDbConnection();
 
-// root endpoint
-app.get("/", (req, res) => {
-  res.json({
-    message: "Welcome to InnerLight API",
-    endpoints: {
-      users: "/api/users",
-      journals: "/api/journals",
-      articles: "/api/articles",
-      appointments: "/api/appointments",
-    },
-    documentation: "Check the README for detailed API documentation",
-  });
-});
-
-// api root endpoint
+// API Documentation Endpoints
 app.get("/api", (req, res) => {
   res.json({
     message: "InnerLight API Root",
@@ -62,13 +53,18 @@ app.get("/api", (req, res) => {
   });
 });
 
-// routes
+// API Routes
 app.use("/api/users", userRoutes);
 app.use("/api/journals", journalRoutes);
 app.use("/api/articles", articleRoutes);
 app.use("/api/appointments", appointmentRoutes);
 
-// error handling middleware
+// Serve frontend for all non-API routes
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// Error handling middleware (should be last)
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
