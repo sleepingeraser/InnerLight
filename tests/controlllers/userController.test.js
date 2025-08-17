@@ -1,74 +1,81 @@
-const { poolPromise, sql } = require("../../config/dbConfig");
 const request = require("supertest");
 const app = require("../../app");
 const User = require("../../models/user");
+const { poolPromise, sql } = require("../../config/dbConfig");
 
 describe("User Controller", () => {
+  let testUserId;
   let authToken;
-  const testEmail = `test-${Date.now()}@example.com`;
 
   beforeAll(async () => {
-    const pool = await poolPromise;
-    await pool
-      .request()
-      .input("email", sql.NVarChar(255), testEmail)
-      .query("DELETE FROM Users WHERE email = @email");
+    // create a test user
+    const user = await User.create({
+      username: "testcontroller",
+      email: "controller@example.com",
+      password: "password123",
+      role: "user",
+    });
+    testUserId = user.id;
   });
 
   afterAll(async () => {
     const pool = await poolPromise;
     await pool
       .request()
-      .input("email", sql.NVarChar(255), testEmail)
+      .input("email", sql.NVarChar(255), "controller@example.com")
+      .query("DELETE FROM Users WHERE email = @email");
+    await pool
+      .request()
+      .input("email", sql.NVarChar(255), "newuser@example.com")
       .query("DELETE FROM Users WHERE email = @email");
   });
 
   describe("POST /api/users/register", () => {
-    it("should register a new user", async () => {
-      const res = await request(app)
+    it("should register a new user (201)", async () => {
+      const response = await request(app)
         .post("/api/users/register")
         .send({
-          username: "testuser",
-          email: testEmail,
-          password: "testpassword",
+          username: "newuser",
+          email: "newuser@example.com",
+          password: "password123",
         })
         .expect(201);
 
-      expect(res.body).toHaveProperty("id");
-      expect(res.body).toHaveProperty("token");
+      expect(response.body).toHaveProperty("token");
+      expect(response.body.email).toBe("newuser@example.com");
     });
 
-    it("should reject duplicate email", async () => {
+    it("should reject duplicate email (400)", async () => {
       await request(app)
         .post("/api/users/register")
         .send({
-          username: "testuser",
-          email: testEmail,
-          password: "testpassword",
+          username: "testcontroller",
+          email: "controller@example.com",
+          password: "password123",
         })
         .expect(400);
     });
   });
 
   describe("POST /api/users/login", () => {
-    it("should login with valid credentials", async () => {
-      const res = await request(app)
+    it("should login with valid credentials (200)", async () => {
+      const response = await request(app)
         .post("/api/users/login")
         .send({
-          email: testEmail,
-          password: "testpassword",
+          email: "controller@example.com",
+          password: "password123",
         })
         .expect(200);
 
-      expect(res.body).toHaveProperty("token");
-      authToken = res.body.token;
+      expect(response.body).toHaveProperty("token");
+      authToken = response.body.token;
     });
 
-    it("should reject invalid credentials", async () => {
+    it("should reject invalid password (401)", async () => {
       await request(app)
         .post("/api/users/login")
         .send({
-          email: testEmail,
+          email: "controller@example.com",
           password: "wrongpassword",
         })
         .expect(401);
@@ -76,17 +83,16 @@ describe("User Controller", () => {
   });
 
   describe("GET /api/users/me", () => {
-    it("should get current user with valid token", async () => {
-      const res = await request(app)
+    it("should get current user with valid token (200)", async () => {
+      const response = await request(app)
         .get("/api/users/me")
         .set("Authorization", `Bearer ${authToken}`)
         .expect(200);
 
-      expect(res.body).toHaveProperty("id");
-      expect(res.body.email).toBe(testEmail);
+      expect(response.body.email).toBe("controller@example.com");
     });
 
-    it("should reject without token", async () => {
+    it("should reject without token (401)", async () => {
       await request(app).get("/api/users/me").expect(401);
     });
   });

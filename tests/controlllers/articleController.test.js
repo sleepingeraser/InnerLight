@@ -1,92 +1,162 @@
 const request = require("supertest");
 const app = require("../../app");
-const { poolPromise, sql } = require("../../config/dbConfig");
 const User = require("../../models/user");
 const Article = require("../../models/article");
+const { poolPromise, sql } = require("../../config/dbConfig");
 
 describe("Article Controller", () => {
+  let adminUser;
   let adminToken;
+  let regularUser;
+  let regularToken;
   let testArticleId;
 
   beforeAll(async () => {
     // create admin user
-    const admin = await User.create({
-      username: "articleadmin",
-      email: "admin@example.com",
-      password: "testpassword",
+    adminUser = await User.create({
+      username: "articletestadmin",
+      email: "articleadmin@example.com",
+      password: "password123",
       role: "admin",
     });
-
-    const loginRes = await request(app).post("/api/users/login").send({
-      email: "admin@example.com",
-      password: "testpassword",
+    const adminRes = await request(app).post("/api/users/login").send({
+      email: "articleadmin@example.com",
+      password: "password123",
     });
-    adminToken = loginRes.body.token;
+    adminToken = adminRes.body.token;
 
-    // create test article
-    const article = await Article.create({
-      title: "Test Article",
-      content: "Test content",
-      category: "Test",
+    // create regular user
+    regularUser = await User.create({
+      username: "articletestuser",
+      email: "articleuser@example.com",
+      password: "password123",
+      role: "user",
     });
-    testArticleId = article.id;
+    const userRes = await request(app).post("/api/users/login").send({
+      email: "articleuser@example.com",
+      password: "password123",
+    });
+    regularToken = userRes.body.token;
   });
 
   afterAll(async () => {
-    // clean up
     const pool = await poolPromise;
-    await pool.request().query("DELETE FROM Articles");
     await pool
       .request()
-      .input("email", sql.NVarChar(255), "admin@example.com")
+      .input("email", sql.NVarChar(255), "articleadmin@example.com")
       .query("DELETE FROM Users WHERE email = @email");
-    await pool.close();
+    await pool
+      .request()
+      .input("email", sql.NVarChar(255), "articleuser@example.com")
+      .query("DELETE FROM Users WHERE email = @email");
   });
 
-  describe("GET /api/articles", () => {
-    it("should get all articles", async () => {
-      const res = await request(app).get("/api/articles").expect(200);
-
-      expect(Array.isArray(res.body.data || res.body)).toBe(true);
-    });
+  afterEach(async () => {
+    if (testArticleId) {
+      const pool = await poolPromise;
+      await pool
+        .request()
+        .input("id", sql.Int, testArticleId)
+        .query("DELETE FROM Articles WHERE id = @id");
+    }
   });
 
   describe("POST /api/articles", () => {
-    it("should create article as admin", async () => {
-      const res = await request(app)
+    it("should create article as admin (201)", async () => {
+      const response = await request(app)
         .post("/api/articles")
         .set("Authorization", `Bearer ${adminToken}`)
         .send({
-          title: "New Article",
-          content: "New content",
-          category: "New",
+          title: "Admin Created Article",
+          content: "Content from admin",
+          category: "Wellness",
         })
         .expect(201);
 
-      expect(res.body).toHaveProperty("id");
+      testArticleId = response.body.id;
+      expect(response.body.title).toBe("Admin Created Article");
     });
 
-    it("should reject as regular user", async () => {
-      const user = await User.create({
-        username: "regularuser",
-        email: "user@example.com",
-        password: "testpassword",
-        role: "user",
-      });
-
-      const loginRes = await request(app).post("/api/users/login").send({
-        email: "user@example.com",
-        password: "testpassword",
-      });
-
+    it("should reject as regular user (403)", async () => {
       await request(app)
         .post("/api/articles")
-        .set("Authorization", `Bearer ${loginRes.body.token}`)
+        .set("Authorization", `Bearer ${regularToken}`)
         .send({
-          title: "User Article",
-          content: "User content",
-          category: "User",
+          title: "User Created Article",
+          content: "Should be rejected",
+          category: "Wellness",
         })
+        .expect(403);
+    });
+  });
+
+  describe("GET /api/articles", () => {
+    it("should retrieve articles (200)", async () => {
+      const article = await Article.create({
+        title: "Public Article",
+        content: "Should be visible to all",
+        category: "Mental Health",
+      });
+      testArticleId = article.id;
+
+      const response = await request(app).get("/api/articles").expect(200);
+
+      expect(response.body.data || response.body).toContainEqual(
+        expect.objectContaining({
+          id: testArticleId,
+          title: "Public Article",
+        })
+      );
+    });
+
+    it("should filter by category (200)", async () => {
+      const response = await request(app)
+        .get("/api/articles?category=Mental+Health")
+        .expect(200);
+
+      if (response.body.data) {
+        // if using pagination
+        expect(
+          response.body.data.every((a) => a.category === "Mental Health")
+        ).toBe(true);
+      } else {
+        expect(response.body.every((a) => a.category === "Mental Health")).toBe(
+          true
+        );
+      }
+    });
+  });
+
+  describe("DELETE /api/articles/:id", () => {
+    it("should delete as admin (200)", async () => {
+      const article = await Article.create({
+        title: "To be deleted",
+        content: "Will be deleted by admin",
+        category: "Wellness",
+      });
+      testArticleId = article.id;
+
+      await request(app)
+        .delete(`/api/articles/${testArticleId}`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200);
+
+      const articleAfterDelete = await Article.findById(testArticleId);
+      expect(articleAfterDelete).toBeUndefined();
+      testArticleId = null;
+    });
+
+    it("should reject as regular user (403)", async () => {
+      const article = await Article.create({
+        title: "Protected Article",
+        content: "Should not be deletable",
+        category: "Wellness",
+      });
+      testArticleId = article.id;
+
+      await request(app)
+        .delete(`/api/articles/${testArticleId}`)
+        .set("Authorization", `Bearer ${regularToken}`)
         .expect(403);
     });
   });

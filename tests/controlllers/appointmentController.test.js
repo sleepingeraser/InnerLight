@@ -1,91 +1,92 @@
 const request = require("supertest");
 const app = require("../../app");
-const { poolPromise, sql } = require("../../config/dbConfig");
 const User = require("../../models/user");
 const Appointment = require("../../models/appointment");
+const { poolPromise, sql } = require("../../config/dbConfig");
 
 describe("Appointment Controller", () => {
-  let userToken;
+  let testUser;
+  let authToken;
+  let adminUser;
   let adminToken;
   let testAppointmentId;
 
   beforeAll(async () => {
-    // create test users
-    const user = await User.create({
-      username: "apptuser",
-      email: "user@example.com",
-      password: "testpassword",
+    // create regular user
+    testUser = await User.create({
+      username: "apptcontroller",
+      email: "apptcontroller@example.com",
+      password: "password123",
       role: "user",
     });
 
-    const admin = await User.create({
-      username: "apptadmin",
-      email: "admin@example.com",
-      password: "testpassword",
+    const userRes = await request(app).post("/api/users/login").send({
+      email: "apptcontroller@example.com",
+      password: "password123",
+    });
+    authToken = userRes.body.token;
+
+    // create admin user
+    adminUser = await User.create({
+      username: "apptadmincontroller",
+      email: "apptadmincontroller@example.com",
+      password: "password123",
       role: "admin",
     });
 
-    // get tokens
-    const userRes = await request(app).post("/api/users/login").send({
-      email: "user@example.com",
-      password: "testpassword",
-    });
-    userToken = userRes.body.token;
-
     const adminRes = await request(app).post("/api/users/login").send({
-      email: "admin@example.com",
-      password: "testpassword",
+      email: "apptadmincontroller@example.com",
+      password: "password123",
     });
     adminToken = adminRes.body.token;
-
-    // create test appointment
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 1);
-    const appointment = await Appointment.create({
-      userId: user.id,
-      scheduledAt: futureDate,
-    });
-    testAppointmentId = appointment.id;
   });
 
   afterAll(async () => {
-    // clean up
     const pool = await poolPromise;
-    await pool.request().query("DELETE FROM Appointments");
     await pool
       .request()
-      .input("email", sql.NVarChar(255), "user@example.com")
+      .input("email", sql.NVarChar(255), "apptcontroller@example.com")
       .query("DELETE FROM Users WHERE email = @email");
     await pool
       .request()
-      .input("email", sql.NVarChar(255), "admin@example.com")
+      .input("email", sql.NVarChar(255), "apptadmincontroller@example.com")
       .query("DELETE FROM Users WHERE email = @email");
-    await pool.close();
+  });
+
+  afterEach(async () => {
+    if (testAppointmentId) {
+      const pool = await poolPromise;
+      await pool
+        .request()
+        .input("id", sql.Int, testAppointmentId)
+        .query("DELETE FROM Appointments WHERE id = @id");
+    }
   });
 
   describe("POST /api/appointments", () => {
-    it("should create appointment with future date", async () => {
+    it("should create a new appointment (201)", async () => {
       const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + 2);
+      futureDate.setDate(futureDate.getDate() + 1);
 
-      const res = await request(app)
+      const response = await request(app)
         .post("/api/appointments")
-        .set("Authorization", `Bearer ${userToken}`)
+        .set("Authorization", `Bearer ${authToken}`)
         .send({
           scheduledAt: futureDate.toISOString(),
         })
         .expect(201);
 
-      expect(res.body).toHaveProperty("id");
+      testAppointmentId = response.body.id;
+      expect(response.body.status).toBe("pending");
     });
 
-    it("should reject past date", async () => {
+    it("should reject past dates (400)", async () => {
       const pastDate = new Date();
       pastDate.setDate(pastDate.getDate() - 1);
 
       await request(app)
         .post("/api/appointments")
-        .set("Authorization", `Bearer ${userToken}`)
+        .set("Authorization", `Bearer ${authToken}`)
         .send({
           scheduledAt: pastDate.toISOString(),
         })
@@ -93,9 +94,51 @@ describe("Appointment Controller", () => {
     });
   });
 
+  describe("GET /api/appointments", () => {
+    it("should retrieve user appointments (200)", async () => {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 1);
+
+      const appointment = await Appointment.create({
+        userId: testUser.id,
+        scheduledAt: futureDate,
+        status: "pending",
+      });
+      testAppointmentId = appointment.id;
+
+      const response = await request(app)
+        .get("/api/appointments")
+        .set("Authorization", `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.some((a) => a.id === testAppointmentId)).toBe(true);
+    });
+
+    it("should filter by status (200)", async () => {
+      const response = await request(app)
+        .get("/api/appointments?status=pending")
+        .set("Authorization", `Bearer ${authToken}`)
+        .expect(200);
+
+      if (response.body.length > 0) {
+        expect(response.body.every((a) => a.status === "pending")).toBe(true);
+      }
+    });
+  });
+
   describe("PUT /api/appointments/admin/:id/status", () => {
-    it("should update status as admin", async () => {
-      const res = await request(app)
+    it("should update status as admin (200)", async () => {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 1);
+
+      const appointment = await Appointment.create({
+        userId: testUser.id,
+        scheduledAt: futureDate,
+        status: "pending",
+      });
+      testAppointmentId = appointment.id;
+
+      await request(app)
         .put(`/api/appointments/admin/${testAppointmentId}/status`)
         .set("Authorization", `Bearer ${adminToken}`)
         .send({
@@ -103,7 +146,51 @@ describe("Appointment Controller", () => {
         })
         .expect(200);
 
-      expect(res.body.message).toBe("Appointment status updated successfully");
+      const updatedAppointment = await Appointment.findById(testAppointmentId);
+      expect(updatedAppointment.status).toBe("approved");
+    });
+
+    it("should reject invalid status (400)", async () => {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 1);
+
+      const appointment = await Appointment.create({
+        userId: testUser.id,
+        scheduledAt: futureDate,
+        status: "pending",
+      });
+      testAppointmentId = appointment.id;
+
+      await request(app)
+        .put(`/api/appointments/admin/${testAppointmentId}/status`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          status: "invalid-status",
+        })
+        .expect(400);
+    });
+  });
+
+  describe("DELETE /api/appointments/:id", () => {
+    it("should cancel appointment (200)", async () => {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 1);
+
+      const appointment = await Appointment.create({
+        userId: testUser.id,
+        scheduledAt: futureDate,
+        status: "pending",
+      });
+      testAppointmentId = appointment.id;
+
+      await request(app)
+        .delete(`/api/appointments/${testAppointmentId}`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .expect(200);
+
+      const deletedAppointment = await Appointment.findById(testAppointmentId);
+      expect(deletedAppointment).toBeUndefined();
+      testAppointmentId = null;
     });
   });
 });

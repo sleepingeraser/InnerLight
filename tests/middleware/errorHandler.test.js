@@ -1,39 +1,103 @@
-const request = require("supertest");
-const express = require("express");
 const errorHandler = require("../../middleware/errorHandler");
+const { ValidationError } = require("express-validation");
+
+// Mock Express objects
+const mockRequest = () => ({
+  headers: {
+    "content-type": "application/json",
+  },
+});
+
+const mockResponse = () => {
+  const res = {};
+  res.status = jest.fn().mockReturnValue(res);
+  res.json = jest.fn().mockReturnValue(res);
+  return res;
+};
 
 describe("Error Handler Middleware", () => {
-  const app = express();
+  it("should handle ValidationError with 400 status", () => {
+    const req = mockRequest();
+    const res = mockResponse();
+    const next = jest.fn();
+    const err = new ValidationError(
+      [
+        {
+          message: '"email" is required',
+          field: ["email"],
+        },
+      ],
+      {}
+    );
 
-  beforeAll(() => {
-    app.get("/error", (req, res, next) => {
-      const err = new Error("Test error");
-      err.statusCode = 400;
-      next(err);
+    errorHandler(err, req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: '"email" is required',
     });
-
-    app.get("/generic-error", (req, res, next) => {
-      throw new Error("Generic error");
-    });
-
-    app.use(errorHandler);
   });
 
-  it("should handle custom errors with status code", async () => {
-    const res = await request(app).get("/error").expect(400);
+  it("should handle UnauthorizedError with 401 status", () => {
+    const req = mockRequest();
+    const res = mockResponse();
+    const next = jest.fn();
+    const err = new Error("Unauthorized");
+    err.name = "UnauthorizedError";
 
-    expect(res.body).toEqual({
+    errorHandler(err, req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({
       success: false,
-      error: "Test error",
+      error: "Unauthorized",
     });
   });
 
-  it("should handle generic errors", async () => {
-    const res = await request(app).get("/generic-error").expect(500);
+  it('should handle custom "Not authorized" error with 403 status', () => {
+    const req = mockRequest();
+    const res = mockResponse();
+    const next = jest.fn();
+    const err = new Error("Not authorized");
 
-    expect(res.body).toEqual({
+    errorHandler(err, req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
       success: false,
-      error: "Generic error",
+      error: "Not authorized",
+    });
+  });
+
+  it("should handle generic errors with 500 status", () => {
+    const req = mockRequest();
+    const res = mockResponse();
+    const next = jest.fn();
+    const err = new Error("Some unexpected error");
+
+    errorHandler(err, req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: "Something went wrong",
+    });
+  });
+
+  it("should handle database connection errors", () => {
+    const req = mockRequest();
+    const res = mockResponse();
+    const next = jest.fn();
+    const err = new Error("Database Connection Failed");
+    err.code = "ECONNREFUSED";
+
+    errorHandler(err, req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(503);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: "Service unavailable",
     });
   });
 });

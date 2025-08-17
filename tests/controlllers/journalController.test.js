@@ -1,104 +1,142 @@
 const request = require("supertest");
 const app = require("../../app");
-const { poolPromise, sql } = require("../../config/dbConfig");
 const User = require("../../models/user");
 const Journal = require("../../models/journal");
+const { poolPromise, sql } = require("../../config/dbConfig");
 
 describe("Journal Controller", () => {
+  let testUserId;
   let authToken;
   let testJournalId;
 
   beforeAll(async () => {
-    // create test user and journal
+    // create test user and get token
     const user = await User.create({
-      username: "journaluser",
-      email: "journal@example.com",
-      password: "testpassword",
+      username: "journaltest",
+      email: "journaltest@example.com",
+      password: "password123",
       role: "user",
     });
+    testUserId = user.id;
 
-    const loginRes = await request(app).post("/api/users/login").send({
-      email: "journal@example.com",
-      password: "testpassword",
+    const response = await request(app).post("/api/users/login").send({
+      email: "journaltest@example.com",
+      password: "password123",
     });
-    authToken = loginRes.body.token;
-
-    const journal = await Journal.create({
-      userId: user.id,
-      title: "Test Journal",
-      content: "Test content",
-    });
-    testJournalId = journal.id;
+    authToken = response.body.token;
   });
 
   afterAll(async () => {
-    // clean up
     const pool = await poolPromise;
-    await pool.request().query("DELETE FROM Journals");
     await pool
       .request()
-      .input("email", sql.NVarChar(255), "journal@example.com")
+      .input("email", sql.NVarChar(255), "journaltest@example.com")
       .query("DELETE FROM Users WHERE email = @email");
-    await pool.close();
+  });
+
+  afterEach(async () => {
+    if (testJournalId) {
+      const pool = await poolPromise;
+      await pool
+        .request()
+        .input("id", sql.Int, testJournalId)
+        .query("DELETE FROM Journals WHERE id = @id");
+    }
   });
 
   describe("POST /api/journals", () => {
-    it("should create a new journal entry", async () => {
-      const res = await request(app)
+    it("should create a new journal entry (201)", async () => {
+      const response = await request(app)
         .post("/api/journals")
         .set("Authorization", `Bearer ${authToken}`)
         .send({
-          title: "New Journal",
-          content: "New content",
+          title: "API Test Journal",
+          content: "This was created via API",
         })
         .expect(201);
 
-      expect(res.body).toHaveProperty("id");
-      expect(res.body.content).toBe("New content");
+      testJournalId = response.body.id;
+      expect(response.body.title).toBe("API Test Journal");
+    });
+
+    it("should reject without content (400)", async () => {
+      await request(app)
+        .post("/api/journals")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({
+          title: "Invalid Journal",
+          content: "",
+        })
+        .expect(400);
     });
   });
 
   describe("GET /api/journals", () => {
-    it("should get user journals", async () => {
-      const res = await request(app)
+    it("should retrieve user journals (200)", async () => {
+      const journal = await Journal.create({
+        userId: testUserId,
+        title: "Retrieval Test",
+        content: "Should be returned in GET",
+      });
+      testJournalId = journal.id;
+
+      const response = await request(app)
         .get("/api/journals")
         .set("Authorization", `Bearer ${authToken}`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThan(0);
+      expect(response.body.length).toBeGreaterThan(0);
+      expect(response.body.some((j) => j.id === testJournalId)).toBe(true);
     });
   });
 
-  describe("GET /api/journals/:id", () => {
-    it("should get a specific journal", async () => {
-      const res = await request(app)
-        .get(`/api/journals/${testJournalId}`)
+  describe("DELETE /api/journals/:id", () => {
+    it("should delete a journal entry (200)", async () => {
+      const journal = await Journal.create({
+        userId: testUserId,
+        title: "To be deleted",
+        content: "This will be deleted via API",
+      });
+      testJournalId = journal.id;
+
+      await request(app)
+        .delete(`/api/journals/${testJournalId}`)
         .set("Authorization", `Bearer ${authToken}`)
         .expect(200);
 
-      expect(res.body.id).toBe(testJournalId);
+      const journalAfterDelete = await Journal.findById(testJournalId);
+      expect(journalAfterDelete).toBeUndefined();
+      testJournalId = null;
     });
 
-    it("should reject access to other users journals", async () => {
-      // create another user
+    it("should reject deleting others journals (403)", async () => {
       const otherUser = await User.create({
-        username: "otheruser",
-        email: "other@example.com",
-        password: "testpassword",
+        username: "otherjournaluser",
+        email: "otherjournal@example.com",
+        password: "password123",
         role: "user",
       });
-
       const otherJournal = await Journal.create({
         userId: otherUser.id,
-        title: "Other Journal",
-        content: "Other content",
+        title: "Other User Journal",
+        content: "Should not be deletable",
       });
 
       await request(app)
-        .get(`/api/journals/${otherJournal.id}`)
+        .delete(`/api/journals/${otherJournal.id}`)
         .set("Authorization", `Bearer ${authToken}`)
         .expect(403);
+
+      // cleanup
+      const pool = await poolPromise;
+      await pool
+        .request()
+        .input("id", sql.Int, otherJournal.id)
+        .query("DELETE FROM Journals WHERE id = @id");
+      await pool
+        .request()
+        .input("email", sql.NVarChar(255), "otherjournal@example.com")
+        .query("DELETE FROM Users WHERE email = @email");
     });
   });
 });

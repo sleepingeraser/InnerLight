@@ -1,24 +1,35 @@
-const request = require("supertest");
-const app = require("../../app");
 const { poolPromise, sql } = require("../../config/dbConfig");
+const jwt = require("jsonwebtoken");
+const { auth, adminAuth } = require("../../middleware/auth");
 const User = require("../../models/user");
 
+// mock Express request/response/next
+const mockRequest = (headers = {}) => ({
+  header: (name) => headers[name],
+  user: null,
+});
+
+const mockResponse = () => {
+  const res = {};
+  res.status = jest.fn().mockReturnValue(res);
+  res.json = jest.fn().mockReturnValue(res);
+  return res;
+};
+
+const mockNext = jest.fn();
+
 describe("Auth Middleware", () => {
-  let testToken;
+  let testUser;
+  let validToken;
 
   beforeAll(async () => {
-    const user = await User.create({
+    testUser = await User.create({
       username: "authuser",
       email: "auth@example.com",
-      password: "testpassword",
+      password: "password123",
       role: "user",
     });
-
-    const res = await request(app).post("/api/users/login").send({
-      email: "auth@example.com",
-      password: "testpassword",
-    });
-    testToken = res.body.token;
+    validToken = User.generateToken(testUser);
   });
 
   afterAll(async () => {
@@ -27,24 +38,60 @@ describe("Auth Middleware", () => {
       .request()
       .input("email", sql.NVarChar(255), "auth@example.com")
       .query("DELETE FROM Users WHERE email = @email");
-    await pool.close();
   });
 
-  it("should allow access with valid token", async () => {
-    await request(app)
-      .get("/api/users/me")
-      .set("Authorization", `Bearer ${testToken}`)
-      .expect(200);
+  describe("auth()", () => {
+    it("should call next() with valid token", async () => {
+      const req = mockRequest({
+        Authorization: `Bearer ${validToken}`,
+      });
+      const res = mockResponse();
+
+      await auth(req, res, mockNext);
+
+      expect(mockNext).toHaveBeenCalled();
+      expect(req.user.id).toBe(testUser.id);
+    });
+
+    it("should return 401 without token", async () => {
+      const req = mockRequest();
+      const res = mockResponse();
+
+      await auth(req, res, mockNext);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
   });
 
-  it("should reject access with invalid token", async () => {
-    await request(app)
-      .get("/api/users/me")
-      .set("Authorization", "Bearer invalidtoken")
-      .expect(401);
-  });
+  describe("adminAuth()", () => {
+    it("should return 403 for non-admin user", async () => {
+      const req = mockRequest({
+        Authorization: `Bearer ${validToken}`,
+      });
+      const res = mockResponse();
 
-  it("should reject access without token", async () => {
-    await request(app).get("/api/users/me").expect(401);
+      await adminAuth(req, res, mockNext);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    it("should call next() for admin user", async () => {
+      const adminUser = await User.create({
+        username: "adminuser",
+        email: "admin@example.com",
+        password: "password123",
+        role: "admin",
+      });
+      const adminToken = User.generateToken(adminUser);
+
+      const req = mockRequest({
+        Authorization: `Bearer ${adminToken}`,
+      });
+      const res = mockResponse();
+
+      await adminAuth(req, res, mockNext);
+
+      expect(mockNext).toHaveBeenCalled();
+    });
   });
 });
