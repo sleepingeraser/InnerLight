@@ -1,18 +1,20 @@
 const request = require("supertest");
 const app = require("../../app");
 const { pool } = require("../../config/dbConfig");
+const Journal = require("../../models/journal");
 
-describe("Journal Routes", () => {
+describe("Journal Controller", () => {
   let authToken;
   let testJournalId;
 
   beforeAll(async () => {
     // login to get token
-    const res = await request(app).post("/api/users/login").send({
+    const loginRes = await request(app).post("/api/users/login").send({
       email: "test@example.com",
       password: "Test1234!",
     });
-    authToken = res.body.token;
+
+    authToken = loginRes.body.token;
   });
 
   afterAll(async () => {
@@ -30,11 +32,12 @@ describe("Journal Routes", () => {
         .set("Authorization", `Bearer ${authToken}`)
         .send({
           title: "Test Journal",
-          content: "Test content",
+          content: "This is a test journal entry",
         });
 
       expect(res.statusCode).toEqual(201);
       expect(res.body).toHaveProperty("id");
+      expect(res.body.content).toEqual("This is a test journal entry");
 
       testJournalId = res.body.id;
     });
@@ -53,8 +56,6 @@ describe("Journal Routes", () => {
 
   describe("GET /journals/:id", () => {
     it("should get a specific journal entry", async () => {
-      if (!testJournalId) return; // skip if no journal was created
-
       const res = await request(app)
         .get(`/api/journals/${testJournalId}`)
         .set("Authorization", `Bearer ${authToken}`);
@@ -62,12 +63,18 @@ describe("Journal Routes", () => {
       expect(res.statusCode).toEqual(200);
       expect(res.body.id).toEqual(testJournalId);
     });
+
+    it("should return 404 for non-existent journal", async () => {
+      const res = await request(app)
+        .get("/api/journals/99999")
+        .set("Authorization", `Bearer ${authToken}`);
+
+      expect(res.statusCode).toEqual(404);
+    });
   });
 
   describe("PUT /journals/:id", () => {
     it("should update a journal entry", async () => {
-      if (!testJournalId) return; // skip if no journal was created
-
       const res = await request(app)
         .put(`/api/journals/${testJournalId}`)
         .set("Authorization", `Bearer ${authToken}`)
@@ -77,13 +84,12 @@ describe("Journal Routes", () => {
         });
 
       expect(res.statusCode).toEqual(200);
+      expect(res.body.message).toEqual("Journal updated successfully");
     });
   });
 
   describe("DELETE /journals/:id", () => {
     it("should delete a journal entry", async () => {
-      if (!testJournalId) return; // skip if no journal was created
-
       const res = await request(app)
         .delete(`/api/journals/${testJournalId}`)
         .set("Authorization", `Bearer ${authToken}`);

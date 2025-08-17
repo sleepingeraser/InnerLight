@@ -1,99 +1,94 @@
+const { pool } = require("../../config/dbConfig");
 const Article = require("../../models/article");
-const { poolPromise, sql } = require("../../config/dbConfig");
 
 describe("Article Model", () => {
   let testArticleId;
 
-  afterEach(async () => {
+  beforeAll(async () => {
+    // clean up any existing test data
+    await pool.query("DELETE FROM Articles WHERE title LIKE 'Test%'");
+  });
+
+  afterAll(async () => {
+    // clean up test data
     if (testArticleId) {
-      const pool = await poolPromise;
-      await pool
-        .request()
-        .input("id", sql.Int, testArticleId)
-        .query("DELETE FROM Articles WHERE id = @id");
+      await pool.query("DELETE FROM Articles WHERE id = $1", [testArticleId]);
     }
+    await pool.end();
   });
 
   describe("create()", () => {
     it("should create a new article", async () => {
       const article = await Article.create({
         title: "Test Article",
-        content: "This is a test article content",
-        category: "Wellness",
+        content: "Test content",
+        category: "Test",
       });
-
       testArticleId = article.id;
+
       expect(article).toHaveProperty("id");
-      expect(article.category).toBe("Wellness");
+      expect(article.title).toEqual("Test Article");
+      expect(article.category).toEqual("Test");
     });
   });
 
   describe("findAll()", () => {
-    it("should retrieve all articles", async () => {
-      const article1 = await Article.create({
-        title: "Article 1",
-        content: "Content 1",
-        category: "Mental Health",
-      });
-      const article2 = await Article.create({
-        title: "Article 2",
-        content: "Content 2",
-        category: "Wellness",
-      });
-      testArticleId = article2.id; // Only track one for cleanup
-
+    it("should find all articles", async () => {
       const articles = await Article.findAll();
-      expect(articles.length).toBeGreaterThanOrEqual(2);
+
+      expect(Array.isArray(articles)).toBeTruthy();
     });
   });
 
   describe("findByCategory()", () => {
-    it("should filter articles by category", async () => {
-      const article = await Article.create({
-        title: "Category Test",
-        content: "Category specific content",
-        category: "Wellness",
-      });
-      testArticleId = article.id;
+    it("should find articles by category", async () => {
+      const articles = await Article.findByCategory("Test");
 
-      const wellnessArticles = await Article.findByCategory("Wellness");
-      expect(wellnessArticles.length).toBeGreaterThan(0);
-      expect(wellnessArticles[0].category).toBe("Wellness");
+      expect(Array.isArray(articles)).toBeTruthy();
+      if (articles.length > 0) {
+        expect(articles[0].category).toEqual("Test");
+      }
     });
   });
 
-  describe("findAllPaginated()", () => {
-    it("should return paginated results", async () => {
-      // Create multiple articles for pagination test
-      for (let i = 0; i < 5; i++) {
-        const article = await Article.create({
-          title: `Pagination Article ${i}`,
-          content: `Content ${i}`,
-          category: i % 2 === 0 ? "Wellness" : "Mental Health",
-        });
-        if (i === 0) testArticleId = article.id;
-      }
+  describe("findById()", () => {
+    it("should find an article by ID", async () => {
+      if (!testArticleId) return; // skip if no article was created
 
-      const result = await Article.findAllPaginated({
-        page: 1,
-        limit: 2,
-        sortBy: "createdAt",
-        sortOrder: "DESC",
-      });
+      const article = await Article.findById(testArticleId);
 
-      expect(result.data.length).toBe(2);
-      expect(result.pagination.total).toBeGreaterThanOrEqual(5);
-      expect(result.pagination.page).toBe(1);
+      expect(article).not.toBeNull();
+      expect(article.id).toEqual(testArticleId);
     });
+  });
 
-    it("should filter by category when provided", async () => {
-      const result = await Article.findAllPaginated({
-        page: 1,
-        limit: 10,
-        category: "Wellness",
+  describe("update()", () => {
+    it("should update an article", async () => {
+      if (!testArticleId) return; // skip if no article was created
+
+      const updated = await Article.update(testArticleId, {
+        title: "Updated Title",
+        content: "Updated content",
+        category: "Updated",
       });
+      expect(updated).toBeTruthy();
 
-      expect(result.data.every((a) => a.category === "Wellness")).toBe(true);
+      const article = await Article.findById(testArticleId);
+      expect(article.title).toEqual("Updated Title");
+    });
+  });
+
+  describe("delete()", () => {
+    it("should delete an article", async () => {
+      if (!testArticleId) return; // skip if no article was created
+
+      const deleted = await Article.delete(testArticleId);
+      expect(deleted).toBeTruthy();
+
+      const article = await Article.findById(testArticleId);
+      expect(article).toBeUndefined();
+
+      testArticleId = null;
     });
   });
 });

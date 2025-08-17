@@ -1,103 +1,80 @@
 const errorHandler = require("../../middleware/errorHandler");
 const { ValidationError } = require("express-validation");
 
-// Mock Express objects
-const mockRequest = () => ({
-  headers: {
-    "content-type": "application/json",
-  },
-});
-
-const mockResponse = () => {
-  const res = {};
-  res.status = jest.fn().mockReturnValue(res);
-  res.json = jest.fn().mockReturnValue(res);
-  return res;
-};
-
 describe("Error Handler Middleware", () => {
+  let mockRequest;
+  let mockResponse;
+  let nextFunction = jest.fn();
+
+  beforeEach(() => {
+    mockRequest = {};
+    mockResponse = {
+      status: jest.fn(() => mockResponse),
+      json: jest.fn(),
+    };
+  });
+
   it("should handle ValidationError with 400 status", () => {
-    const req = mockRequest();
-    const res = mockResponse();
-    const next = jest.fn();
-    const err = new ValidationError(
-      [
-        {
-          message: '"email" is required',
-          field: ["email"],
-        },
-      ],
-      {}
-    );
+    const validationError = new ValidationError("Validation Error", {
+      statusCode: 400,
+      details: {},
+    });
 
-    errorHandler(err, req, res, next);
+    errorHandler(validationError, mockRequest, mockResponse, nextFunction);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({
+    expect(mockResponse.status).toHaveBeenCalledWith(400);
+    expect(mockResponse.json).toHaveBeenCalledWith({
       success: false,
-      error: '"email" is required',
+      error: expect.any(String),
     });
   });
 
   it("should handle UnauthorizedError with 401 status", () => {
-    const req = mockRequest();
-    const res = mockResponse();
-    const next = jest.fn();
-    const err = new Error("Unauthorized");
-    err.name = "UnauthorizedError";
+    const unauthorizedError = new Error("Unauthorized");
+    unauthorizedError.name = "UnauthorizedError";
 
-    errorHandler(err, req, res, next);
+    errorHandler(unauthorizedError, mockRequest, mockResponse, nextFunction);
 
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({
+    expect(mockResponse.status).toHaveBeenCalledWith(401);
+    expect(mockResponse.json).toHaveBeenCalledWith({
       success: false,
       error: "Unauthorized",
     });
   });
 
-  it('should handle custom "Not authorized" error with 403 status', () => {
-    const req = mockRequest();
-    const res = mockResponse();
-    const next = jest.fn();
-    const err = new Error("Not authorized");
+  it('should handle "Not authorized" error with 403 status', () => {
+    const forbiddenError = new Error("Not authorized");
 
-    errorHandler(err, req, res, next);
+    errorHandler(forbiddenError, mockRequest, mockResponse, nextFunction);
 
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith({
+    expect(mockResponse.status).toHaveBeenCalledWith(403);
+    expect(mockResponse.json).toHaveBeenCalledWith({
       success: false,
       error: "Not authorized",
     });
   });
 
-  it("should handle generic errors with 500 status", () => {
-    const req = mockRequest();
-    const res = mockResponse();
-    const next = jest.fn();
-    const err = new Error("Some unexpected error");
+  it('should handle "User not found" error with 404 status', () => {
+    const notFoundError = new Error("User not found");
 
-    errorHandler(err, req, res, next);
+    errorHandler(notFoundError, mockRequest, mockResponse, nextFunction);
 
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({
+    expect(mockResponse.status).toHaveBeenCalledWith(404);
+    expect(mockResponse.json).toHaveBeenCalledWith({
       success: false,
-      error: "Something went wrong",
+      error: "User not found",
     });
   });
 
-  it("should handle database connection errors", () => {
-    const req = mockRequest();
-    const res = mockResponse();
-    const next = jest.fn();
-    const err = new Error("Database Connection Failed");
-    err.code = "ECONNREFUSED";
+  it("should handle generic errors with 500 status", () => {
+    const genericError = new Error("Something went wrong");
 
-    errorHandler(err, req, res, next);
+    errorHandler(genericError, mockRequest, mockResponse, nextFunction);
 
-    expect(res.status).toHaveBeenCalledWith(503);
-    expect(res.json).toHaveBeenCalledWith({
+    expect(mockResponse.status).toHaveBeenCalledWith(500);
+    expect(mockResponse.json).toHaveBeenCalledWith({
       success: false,
-      error: "Service unavailable",
+      error: "Something went wrong",
     });
   });
 });

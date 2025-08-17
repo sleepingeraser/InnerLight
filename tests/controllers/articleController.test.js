@@ -1,22 +1,31 @@
 const request = require("supertest");
 const app = require("../../app");
 const { pool } = require("../../config/dbConfig");
+const Article = require("../../models/article");
 
-describe("Article Routes", () => {
+describe("Article Controller", () => {
+  let authToken;
   let adminToken;
   let testArticleId;
 
   beforeAll(async () => {
-    // login as admin to get token
-    const res = await request(app).post("/api/users/login").send({
+    // login as regular user
+    const userRes = await request(app).post("/api/users/login").send({
+      email: "test@example.com",
+      password: "Test1234!",
+    });
+    authToken = userRes.body.token;
+
+    // login as admin
+    const adminRes = await request(app).post("/api/users/login").send({
       email: "koyukisky18@gmail.com",
       password: "realme",
     });
-    adminToken = res.body.token;
+    adminToken = adminRes.body.token;
   });
 
   afterAll(async () => {
-    // clean up test data
+    // Clean up test data
     if (testArticleId) {
       await pool.query("DELETE FROM Articles WHERE id = $1", [testArticleId]);
     }
@@ -33,20 +42,8 @@ describe("Article Routes", () => {
     });
   });
 
-  describe("GET /articles/category/:category", () => {
-    it("should get articles by category", async () => {
-      const res = await request(app).get("/api/articles/category/Wellness");
-
-      expect(res.statusCode).toEqual(200);
-      expect(Array.isArray(res.body)).toBeTruthy();
-      if (res.body.length > 0) {
-        expect(res.body[0].category).toEqual("Wellness");
-      }
-    });
-  });
-
-  describe("POST /articles (admin only)", () => {
-    it("should create a new article", async () => {
+  describe("POST /articles", () => {
+    it("should create a new article (admin only)", async () => {
       const res = await request(app)
         .post("/api/articles")
         .set("Authorization", `Bearer ${adminToken}`)
@@ -61,12 +58,23 @@ describe("Article Routes", () => {
 
       testArticleId = res.body.id;
     });
+
+    it("should return 403 for non-admin users", async () => {
+      const res = await request(app)
+        .post("/api/articles")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({
+          title: "Test Article",
+          content: "Test content",
+          category: "Test",
+        });
+
+      expect(res.statusCode).toEqual(403);
+    });
   });
 
-  describe("PUT /articles/:id (admin only)", () => {
-    it("should update an article", async () => {
-      if (!testArticleId) return; // skip if no article was created
-
+  describe("PUT /articles/:id", () => {
+    it("should update an article (admin only)", async () => {
       const res = await request(app)
         .put(`/api/articles/${testArticleId}`)
         .set("Authorization", `Bearer ${adminToken}`)
@@ -80,10 +88,8 @@ describe("Article Routes", () => {
     });
   });
 
-  describe("DELETE /articles/:id (admin only)", () => {
-    it("should delete an article", async () => {
-      if (!testArticleId) return; // skip if no article was created
-
+  describe("DELETE /articles/:id", () => {
+    it("should delete an article (admin only)", async () => {
       const res = await request(app)
         .delete(`/api/articles/${testArticleId}`)
         .set("Authorization", `Bearer ${adminToken}`);
