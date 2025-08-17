@@ -16,15 +16,15 @@ const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
 
-// Middleware setup
+// middleware setup
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Serve static files from public directory
+// serve static files from public directory
 app.use(express.static(path.join(__dirname, "public")));
 
-// Test database connection
+// test database connection
 async function testDbConnection() {
   try {
     const pool = await poolPromise;
@@ -38,7 +38,7 @@ async function testDbConnection() {
 
 testDbConnection();
 
-// API Documentation Endpoints
+// api documentation endpoints
 app.get("/api", (req, res) => {
   res.json({
     message: "InnerLight API Root",
@@ -53,23 +53,26 @@ app.get("/api", (req, res) => {
   });
 });
 
-// API Routes
+// api routes
 app.use("/api/users", userRoutes);
 app.use("/api/journals", journalRoutes);
 app.use("/api/articles", articleRoutes);
 app.use("/api/appointments", appointmentRoutes);
 
-// Serve frontend for all non-API routes
+// serve frontend for all non-API routes
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Error handling middleware (should be last)
+// error handling middleware (should be last)
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// only start server if not in test environment
+if (process.env.NODE_ENV !== "test") {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
 
 module.exports = app;

@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --detectOpenHandles --forceExit",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage"
   },
   "keywords": [],
   "author": "Ang Bi Jun",
@@ -21,8 +23,11 @@
     "mssql": "^9.3.2"
   },
   "devDependencies": {
+    "@babel/core": "^7.28.3",
+    "@babel/preset-env": "^7.28.3",
     "cross-env": "^10.0.0",
     "jest": "^30.0.5",
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "supertest": "^7.1.4"
   }
 }
