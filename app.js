@@ -16,7 +16,7 @@ const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
 
-// middleware setup
+// middleware setu
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
