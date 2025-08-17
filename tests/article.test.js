@@ -20,7 +20,7 @@ describe("Article Operations", () => {
     console.log("Articles response:", res.body);
 
     expect(res.statusCode).toEqual(200);
-    // Handle both array and paginated responses
+    // handle both array and paginated responses
     const articles = res.body.data || res.body;
     expect(Array.isArray(articles)).toBeTruthy();
   });
